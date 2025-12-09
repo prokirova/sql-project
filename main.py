@@ -3,6 +3,14 @@ from tkinter import messagebox, ttk
 import mysql.connector
 from mysql.connector import Error
 
+from docx import Document
+from docx.shared import Inches
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import os
+
 
 class MySQLLoginApp:
     def __init__(self, root):
@@ -104,6 +112,9 @@ class MySQLLoginApp:
         tk.Button(btn_frame, text="Добавить", command=self.add_product, bg="#4CAF50", fg="gray", width=12).pack(pady=2)
         tk.Button(btn_frame, text="Изменить", command=self.update_product, bg="#FF9800", fg="gray", width=12).pack(pady=2)
         tk.Button(btn_frame, text="Удалить", command=self.delete_product, bg="#F44336", fg="gray", width=12).pack(pady=2)
+
+        tk.Button(btn_frame, text="В Word", command=self.export_to_word, bg="#2196F3", fg="gray", width=12).pack(pady=2)
+        tk.Button(btn_frame, text="В PDF", command=self.export_to_pdf, bg="#9C27B0", fg="gray", width=12).pack(pady=2)
 
         # Фрейм справа — таблица
 
@@ -238,6 +249,79 @@ class MySQLLoginApp:
         self.id_entry.delete(0, tk.END)
         self.name_entry.delete(0, tk.END)
         self.cat_entry.delete(0, tk.END)
+
+    def export_to_word(self):
+        if not self.tree_view.get_children():
+            messagebox.showwarning("Предупреждение", "Нет данных для экспорта!")
+            return
+
+        try:
+            doc = Document()
+            doc.add_heading('table product', 0)
+
+            # колонки и строки
+            columns = list(self.tree_view["columns"])
+            table = doc.add_table(rows=1, cols=len(columns))
+            table.style = 'Table Grid'
+
+            # Заголовки
+            hdr_cells = table.rows[0].cells
+            for i, col in enumerate(columns):
+                hdr_cells[i].text = str(col)
+
+            # Данные
+            for row_id in self.tree_view.get_children():
+                row = self.tree_view.item(row_id)["values"]
+                row_cells = table.add_row().cells
+                for i, val in enumerate(row):
+                    row_cells[i].text = str(val)
+
+            filepath = "exported_data.docx"
+            doc.save(filepath)
+            messagebox.showinfo("Успех", f"Данные экспортированы в Word:\n{os.path.abspath(filepath)}")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось экспортировать в Word:\n{e}")
+
+    def export_to_pdf(self):
+        if not self.tree_view.get_children():
+            messagebox.showwarning("Предупреждение", "Нет данных для экспорта!")
+            return
+
+        try:
+            filepath = "exported_data.pdf"
+            doc = SimpleDocTemplate(filepath, pagesize=letter)
+            elements = []
+
+            styles = getSampleStyleSheet()
+            title = Paragraph("table product", styles['Title'])
+            elements.append(title)
+            elements.append(Spacer(1, 12))
+
+            # Заголовки
+            columns = list(self.tree_view["columns"])
+            data = [columns]
+
+            # Данные
+            for row_id in self.tree_view.get_children():
+                row = self.tree_view.item(row_id)["values"]
+                data.append([str(val) for val in row])
+
+            # Создание таблицы
+            table = Table(data)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+
+            elements.append(table)
+            doc.build(elements)
+            messagebox.showinfo("Успех", f"Данные экспортированы в PDF:\n{os.path.abspath(filepath)}")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось экспортировать в PDF:\n{e}")
 
 
 if __name__ == "__main__":
